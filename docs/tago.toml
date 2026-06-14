@@ -1,5 +1,5 @@
 title       = "xiaoyuzhou"
-baseURL     = "https://xiaoyuzhou-cli-cli.tamnd.com/"
+baseURL     = "https://xiaoyuzhou-cli.tamnd.com/"
 description = "Browse Xiaoyuzhou (小宇宙) podcasts and episodes"
 contentDir  = "content"
 outputDir   = "public"
@@ -7,4 +7,4 @@ theme       = "tago-doks"
 syntaxHighlight = "true"
 
 [params]
-github = "https://github.com/tamnd/xiaoyuzhou-cli-cli"
+github = "https://github.com/tamnd/xiaoyuzhou-cli"

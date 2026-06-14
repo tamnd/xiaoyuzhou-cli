@@ -1,4 +1,4 @@
-// Command xiaoyuzhou is a single-binary command line for xiaoyuzhou-cli.
+// Command xiaoyuzhou is a single-binary command line for Xiaoyuzhou (小宇宙).
 package main
 
 import (
@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/charmbracelet/fang"
-	"github.com/tamnd/xiaoyuzhou-cli-cli/cli"
+	"github.com/tamnd/xiaoyuzhou-cli/cli"
 )
 
 func main() {
@@ -16,8 +16,6 @@ func main() {
 	defer stop()
 
 	root := cli.Root()
-	// fang gives styled help, errors, and shell completion for free; the command
-	// tree and its exit-code mapping stay in the cli package.
 	if err := fang.Execute(ctx, root,
 		fang.WithVersion(cli.Version),
 		fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM),

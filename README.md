@@ -9,10 +9,10 @@ tools. No API key, nothing to run alongside it.
 ## Install
 
 ```bash
-go install github.com/tamnd/xiaoyuzhou-cli-cli/cmd/xiaoyuzhou@latest
+go install github.com/tamnd/xiaoyuzhou-cli/cmd/xiaoyuzhou@latest
 ```
 
-Or grab a prebuilt binary from the [releases](https://github.com/tamnd/xiaoyuzhou-cli-cli/releases), or run
+Or grab a prebuilt binary from the [releases](https://github.com/tamnd/xiaoyuzhou-cli/releases), or run
 the container image:
 
 ```bash
