@@ -54,7 +54,7 @@ const episodeJSON = `{
 
 type Client = xiaoyuzhou.Client
 
-func DefaultConfig() xiaoyuzhou.Config { return xiaoyuzhou.DefaultConfig() }
+func DefaultConfig() xiaoyuzhou.Config                   { return xiaoyuzhou.DefaultConfig() }
 func NewClient(cfg xiaoyuzhou.Config) *xiaoyuzhou.Client { return xiaoyuzhou.NewClient(cfg) }
 
 func newTestClient(ts *httptest.Server) *Client {
