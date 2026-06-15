@@ -39,12 +39,14 @@ const episodeJSON = `{
   "props": {
     "pageProps": {
       "episode": {
+        "eid": "ep-abc",
         "title": "AI 时代的投资逻辑",
         "podcast": {"title": "硅谷101"},
         "duration": 3661,
         "playCount": 12345,
         "commentCount": 88,
-        "clapCount": 500
+        "clapCount": 500,
+        "pubDate": "2024-02-01"
       }
     }
   }
@@ -69,9 +71,12 @@ func TestPodcastParsesFields(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(srv)
-	p, err := c.Podcast(context.Background(), "test-id")
+	p, err := c.GetPodcast(context.Background(), "test-id")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if p.ID != "test-id" {
+		t.Errorf("id = %q, want test-id", p.ID)
 	}
 	if p.Title != "硅谷101" {
 		t.Errorf("title = %q, want 硅谷101", p.Title)
@@ -97,9 +102,12 @@ func TestEpisodeParsesFields(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(srv)
-	ep, err := c.Episode(context.Background(), "ep-abc")
+	ep, err := c.GetEpisode(context.Background(), "ep-abc")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if ep.EID != "ep-abc" {
+		t.Errorf("eid = %q, want ep-abc", ep.EID)
 	}
 	if ep.Title != "AI 时代的投资逻辑" {
 		t.Errorf("title = %q", ep.Title)
@@ -107,9 +115,9 @@ func TestEpisodeParsesFields(t *testing.T) {
 	if ep.PodcastTitle != "硅谷101" {
 		t.Errorf("podcast title = %q, want 硅谷101", ep.PodcastTitle)
 	}
-	// 3661 seconds = 61 minutes 1 second → "61:01"
-	if ep.Duration != "61:01" {
-		t.Errorf("duration = %q, want 61:01", ep.Duration)
+	// 3661 seconds
+	if ep.DurationSecs != 3661 {
+		t.Errorf("DurationSecs = %v, want 3661", ep.DurationSecs)
 	}
 	if ep.PlayCount != 12345 {
 		t.Errorf("playCount = %v, want 12345", ep.PlayCount)
@@ -117,16 +125,19 @@ func TestEpisodeParsesFields(t *testing.T) {
 	if ep.CommentCount != 88 {
 		t.Errorf("commentCount = %v, want 88", ep.CommentCount)
 	}
+	if ep.PubDate != "2024-02-01" {
+		t.Errorf("pubDate = %q, want 2024-02-01", ep.PubDate)
+	}
 }
 
-func TestEpisodesReturnsList(t *testing.T) {
+func TestListEpisodesReturnsList(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(wrapNextData(podcastJSON)))
 	}))
 	defer srv.Close()
 
 	c := newTestClient(srv)
-	eps, err := c.Episodes(context.Background(), "test-id")
+	eps, err := c.ListEpisodes(context.Background(), "test-id", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,14 +147,29 @@ func TestEpisodesReturnsList(t *testing.T) {
 	if eps[0].EID != "ep001" {
 		t.Errorf("eid = %q, want ep001", eps[0].EID)
 	}
-	// 3661s = 61:01
-	if eps[0].Duration != "61:01" {
-		t.Errorf("duration = %q, want 61:01", eps[0].Duration)
+	if eps[0].DurationSecs != 3661 {
+		t.Errorf("DurationSecs = %v, want 3661", eps[0].DurationSecs)
 	}
 	// url uses BaseURL + /episode/ + eid
 	wantURL := srv.URL + "/episode/ep001"
 	if eps[0].URL != wantURL {
 		t.Errorf("url = %q, want %q", eps[0].URL, wantURL)
+	}
+}
+
+func TestListEpisodesLimit(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(wrapNextData(podcastJSON)))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv)
+	eps, err := c.ListEpisodes(context.Background(), "test-id", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(eps) != 1 {
+		t.Errorf("got %d episodes with limit=1, want 1", len(eps))
 	}
 }
 
@@ -156,7 +182,7 @@ func TestClientSendsUserAgent(t *testing.T) {
 	defer srv.Close()
 
 	c := newTestClient(srv)
-	_, err := c.Podcast(context.Background(), "any")
+	_, err := c.GetPodcast(context.Background(), "any")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,33 +191,28 @@ func TestClientSendsUserAgent(t *testing.T) {
 	}
 }
 
-func TestDurationViaEpisode(t *testing.T) {
+func TestDurationSecsRaw(t *testing.T) {
 	cases := []struct {
 		secs float64
-		want string
 	}{
-		{90, "1:30"},
-		{3661, "61:01"},
-		{60, "1:00"},
+		{90},
+		{3661},
+		{60},
 	}
 	for _, tc := range cases {
-		epJSON := `{"props":{"pageProps":{"episode":{"title":"T","duration":` +
-			formatFloat(tc.secs) + `,"podcast":{"title":"P"}}}}}`
+		epJSON := `{"props":{"pageProps":{"episode":{"eid":"id","title":"T","duration":` +
+			fmt.Sprintf("%v", tc.secs) + `,"podcast":{"title":"P"}}}}}`
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(wrapNextData(epJSON)))
 		}))
 		c := newTestClient(srv)
-		ep, err := c.Episode(context.Background(), "id")
+		ep, err := c.GetEpisode(context.Background(), "id")
 		srv.Close()
 		if err != nil {
 			t.Fatalf("secs=%v: %v", tc.secs, err)
 		}
-		if ep.Duration != tc.want {
-			t.Errorf("secs=%v duration=%q, want %q", tc.secs, ep.Duration, tc.want)
+		if ep.DurationSecs != tc.secs {
+			t.Errorf("secs=%v DurationSecs=%v, want %v", tc.secs, ep.DurationSecs, tc.secs)
 		}
 	}
-}
-
-func formatFloat(f float64) string {
-	return fmt.Sprintf("%v", f)
 }

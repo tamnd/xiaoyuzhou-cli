@@ -2,31 +2,24 @@ package xiaoyuzhou
 
 // Podcast holds the data extracted for the podcast command.
 type Podcast struct {
-	Title             string  `json:"title"`
-	Author            string  `json:"author"`
-	SubscriptionCount float64 `json:"subscription_count"`
-	EpisodeCount      float64 `json:"episode_count"`
-	Description       string  `json:"description"`
-	URL               string  `json:"url"`
+	ID                string `json:"id"                 kit:"id" table:"id"`
+	Title             string `json:"title"                       table:"title"`
+	Author            string `json:"author"                      table:"author"`
+	SubscriptionCount int    `json:"subscription_count"          table:"subscribers"`
+	EpisodeCount      int    `json:"episode_count"               table:"episodes"`
+	Description       string `json:"description,omitempty"       table:"-"`
+	URL               string `json:"url"                         table:"url,url"`
 }
 
 // Episode holds the data extracted for the episode command.
 type Episode struct {
-	Title        string  `json:"title"`
-	PodcastTitle string  `json:"podcast"`
-	Duration     string  `json:"duration"`
-	PlayCount    float64 `json:"play_count"`
-	CommentCount float64 `json:"comment_count"`
-	ClapCount    float64 `json:"clap_count"`
-	URL          string  `json:"url"`
-}
-
-// EpisodeSummary holds one row for the episodes list command.
-type EpisodeSummary struct {
-	EID       string  `json:"eid"`
-	Title     string  `json:"title"`
-	Duration  string  `json:"duration"`
-	PlayCount float64 `json:"play_count"`
-	PubDate   string  `json:"pub_date"`
-	URL       string  `json:"url"`
+	EID          string  `json:"eid"           kit:"id" table:"eid"`
+	Title        string  `json:"title"                  table:"title"`
+	DurationSecs float64 `json:"duration_secs"          table:"duration"`
+	PlayCount    int     `json:"play_count"             table:"plays"`
+	CommentCount int     `json:"comment_count"          table:"comments"`
+	ClapCount    int     `json:"clap_count"             table:"claps"`
+	PubDate      string  `json:"pub_date"               table:"date"`
+	PodcastTitle string  `json:"podcast_title"          table:"podcast"`
+	URL          string  `json:"url"                    table:"url,url"`
 }

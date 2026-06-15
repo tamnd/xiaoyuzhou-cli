@@ -16,6 +16,12 @@ import (
 	"time"
 )
 
+// Host is the canonical hostname for Xiaoyuzhou.
+const Host = "www.xiaoyuzhoufm.com"
+
+// baseURL is the URL prefix used to build page URLs.
+const baseURL = "https://www.xiaoyuzhoufm.com"
+
 // DefaultUserAgent is the browser User-Agent sent with each request.
 // Xiaoyuzhou requires a real User-Agent; without one the server returns 403.
 const DefaultUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -35,7 +41,7 @@ type Config struct {
 // DefaultConfig returns sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		BaseURL:   "https://www.xiaoyuzhoufm.com",
+		BaseURL:   baseURL,
 		UserAgent: DefaultUserAgent,
 		Rate:      300 * time.Millisecond,
 		Timeout:   20 * time.Second,
@@ -69,8 +75,8 @@ func (c *Client) fetchPage(ctx context.Context, url string) (map[string]any, err
 	return getPageProps(body)
 }
 
-// Podcast fetches the podcast page for id and returns a Podcast.
-func (c *Client) Podcast(ctx context.Context, id string) (*Podcast, error) {
+// GetPodcast fetches the podcast page for id and returns a Podcast.
+func (c *Client) GetPodcast(ctx context.Context, id string) (*Podcast, error) {
 	url := c.cfg.BaseURL + "/podcast/" + id
 	props, err := c.fetchPage(ctx, url)
 	if err != nil {
@@ -81,17 +87,18 @@ func (c *Client) Podcast(ctx context.Context, id string) (*Podcast, error) {
 		return nil, fmt.Errorf("%w: podcast %s", ErrNotFound, id)
 	}
 	return &Podcast{
+		ID:                id,
 		Title:             strVal(p["title"]),
 		Author:            strVal(p["author"]),
-		SubscriptionCount: floatVal(p["subscriptionCount"]),
-		EpisodeCount:      floatVal(p["episodeCount"]),
+		SubscriptionCount: intVal(p["subscriptionCount"]),
+		EpisodeCount:      intVal(p["episodeCount"]),
 		Description:       strVal(p["description"]),
 		URL:               url,
 	}, nil
 }
 
-// Episode fetches the episode page for id and returns an Episode.
-func (c *Client) Episode(ctx context.Context, id string) (*Episode, error) {
+// GetEpisode fetches the episode page for id and returns an Episode.
+func (c *Client) GetEpisode(ctx context.Context, id string) (*Episode, error) {
 	url := c.cfg.BaseURL + "/episode/" + id
 	props, err := c.fetchPage(ctx, url)
 	if err != nil {
@@ -106,18 +113,21 @@ func (c *Client) Episode(ctx context.Context, id string) (*Episode, error) {
 		podTitle = strVal(pod["title"])
 	}
 	return &Episode{
+		EID:          id,
 		Title:        strVal(ep["title"]),
 		PodcastTitle: podTitle,
-		Duration:     formatDuration(ep["duration"]),
-		PlayCount:    floatVal(ep["playCount"]),
-		CommentCount: floatVal(ep["commentCount"]),
-		ClapCount:    floatVal(ep["clapCount"]),
+		DurationSecs: floatVal(ep["duration"]),
+		PlayCount:    intVal(ep["playCount"]),
+		CommentCount: intVal(ep["commentCount"]),
+		ClapCount:    intVal(ep["clapCount"]),
+		PubDate:      strVal(ep["pubDate"]),
 		URL:          url,
 	}, nil
 }
 
-// Episodes fetches the podcast page for podcastID and returns the episode list.
-func (c *Client) Episodes(ctx context.Context, podcastID string) ([]EpisodeSummary, error) {
+// ListEpisodes fetches the podcast page for podcastID and returns up to limit episodes.
+// A limit of 0 returns all available episodes.
+func (c *Client) ListEpisodes(ctx context.Context, podcastID string, limit int) ([]*Episode, error) {
 	url := c.cfg.BaseURL + "/podcast/" + podcastID
 	props, err := c.fetchPage(ctx, url)
 	if err != nil {
@@ -128,23 +138,44 @@ func (c *Client) Episodes(ctx context.Context, podcastID string) ([]EpisodeSumma
 		return nil, fmt.Errorf("%w: podcast %s", ErrNotFound, podcastID)
 	}
 	allEps, _ := podcast["episodes"].([]any)
-	out := make([]EpisodeSummary, 0, len(allEps))
+	out := make([]*Episode, 0, len(allEps))
 	for _, raw := range allEps {
 		ep, _ := raw.(map[string]any)
 		if ep == nil {
 			continue
 		}
 		eid := strVal(ep["eid"])
-		out = append(out, EpisodeSummary{
-			EID:       eid,
-			Title:     strVal(ep["title"]),
-			Duration:  formatDuration(ep["duration"]),
-			PlayCount: floatVal(ep["playCount"]),
-			PubDate:   strVal(ep["pubDate"]),
-			URL:       c.cfg.BaseURL + "/episode/" + eid,
+		out = append(out, &Episode{
+			EID:          eid,
+			Title:        strVal(ep["title"]),
+			DurationSecs: floatVal(ep["duration"]),
+			PlayCount:    intVal(ep["playCount"]),
+			PubDate:      strVal(ep["pubDate"]),
+			URL:          c.cfg.BaseURL + "/episode/" + eid,
 		})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
 	}
 	return out, nil
+}
+
+// Podcast is an alias for backward compatibility.
+// Deprecated: use GetPodcast.
+func (c *Client) Podcast(ctx context.Context, id string) (*Podcast, error) {
+	return c.GetPodcast(ctx, id)
+}
+
+// Episode is an alias for backward compatibility.
+// Deprecated: use GetEpisode.
+func (c *Client) Episode(ctx context.Context, id string) (*Episode, error) {
+	return c.GetEpisode(ctx, id)
+}
+
+// Episodes is an alias for backward compatibility.
+// Deprecated: use ListEpisodes.
+func (c *Client) Episodes(ctx context.Context, podcastID string) ([]*Episode, error) {
+	return c.ListEpisodes(ctx, podcastID, 0)
 }
 
 // get performs a GET with retry and pacing.
@@ -218,11 +249,25 @@ func backoff(attempt int) time.Duration {
 	return d
 }
 
+func intVal(v any) int {
+	switch x := v.(type) {
+	case float64:
+		return int(x)
+	case int:
+		return x
+	case int64:
+		return int(x)
+	}
+	return 0
+}
+
 func floatVal(v any) float64 {
 	switch x := v.(type) {
 	case float64:
 		return x
 	case int:
+		return float64(x)
+	case int64:
 		return float64(x)
 	}
 	return 0
