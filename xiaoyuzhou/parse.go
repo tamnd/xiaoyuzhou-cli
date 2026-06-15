@@ -34,23 +34,3 @@ func strVal(v any) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v", v))
 }
-
-// formatDuration converts a float64 second count to "m:ss". Returns "-" for
-// zero or nil values.
-func formatDuration(v any) string {
-	var secs float64
-	switch x := v.(type) {
-	case float64:
-		secs = x
-	case int:
-		secs = float64(x)
-	case int64:
-		secs = float64(x)
-	}
-	if secs <= 0 {
-		return "-"
-	}
-	m := int(secs) / 60
-	s := int(secs) % 60
-	return fmt.Sprintf("%d:%02d", m, s)
-}
